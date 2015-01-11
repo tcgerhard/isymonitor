@@ -1,0 +1,9 @@
+#
+#
+isyconfig.js
+#
+*.log
+#
+node_modules
+build/Release
+npm-debug.log

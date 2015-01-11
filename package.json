@@ -1,0 +1,15 @@
+{
+  "name" : "isymonitor.js",
+  "description" : "Convenient interface to Universal Devices ISY series home automation controllers",
+  "version" :  "0.0.8",
+  "private" : true,
+  "dependencies" : {
+    "express" : "3.4.8",
+    "jade" : "*",
+    "xml2js" : "*",
+    "node-schedule" : "*", 
+    "mqtt" : "*",
+    "less" : "*",
+    "winston": "*"
+  }
+}
