@@ -1,0 +1,18 @@
+extends main
+
+block title
+  title isymonitor overview
+block content
+  h1 Device status overview
+  each device,addr in devices
+      div.dev
+        span.devname= addr
+        each subdevice,subaddr in device
+          span.sub
+            = subdevice.name + ' ' 
+            div.status= subdevice.status
+            each control, label in subdevice.controls
+              a(href=control class='control') #{label}
+
+
+
