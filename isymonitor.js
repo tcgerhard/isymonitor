@@ -1,13 +1,12 @@
 // Todo:
 //	Extract config info into a module
-//		isy URL, admin user/password
-//		treat underscores as readonly
 //		
+//	Refactor event data out of main loop, then
+//	Handle event data on subscription socket (requires hand-crafted HTTP?)
 //	Clean up logging
 //	Rationalize REST URLs
 //	Reconnect after heartbeat timeout
 //	Move to express templates for html pages
-//	Package for NPM (dependancies, etc.)
 //	Keep some stats & build a display page
 //	Save state in a JSON file?
 //	Event emitters (device state change, variable change)?
@@ -233,30 +232,10 @@ app.get('/status', function(req, res) {
 });
 
 app.get('/', function(req, res) {
-	var data = "<link rel='stylesheet' href='/media/main.css' /> \n Devices<br />";
-	var highSerial = 0;
-	for (key in deviceStatus) {
-		data += "<div class='dev'><span class='devname'>" + key + "</span> ";
-		for (subkey in deviceStatus[key]) {
-			var stat = deviceStatus[key][subkey].action;
-			var label = "On";
-			var serial = deviceStatus[key][subkey].serial;
-			// TODO: Handle edge case where .name does not exist (can occur when device object is just being created)
-			var name = (deviceStatus[key][subkey].name == 'undefined') ? subkey : deviceStatus[key][subkey].name.replace(/.*#/,'');
-			highSerial = Math.max( serial,  highSerial);
-			if (stat == 0) label = "Off";
-			if (stat > 0 && stat < 255) label = Math.round((Number(stat)*100)/255) + "%";
-			data += "<span class='sub'>" + name + " " + label;
-			if ((displaySerial > 0) && (deviceStatus[key][subkey].serial > displaySerial)) data += "*";
-			data += "</span>\n";
-		}
-		data += "</div>";
-	}
-	res.send('<br />Welcome!<br />'  + data);
-	displaySerial = highSerial;
+	res.render('welcome');
 	});
 
-app.get('/t', function(req, res) {
+app.get('/devices', function(req, res) {
 	var displayDevices = {};
 	var highSerial = 0;
 	for (key in deviceStatus) {
@@ -281,14 +260,14 @@ app.get('/t', function(req, res) {
 			// if ((displaySerial > 0) && (deviceStatus[key][subkey].serial > displaySerial)) data += "*";
 		}
 	}
-	res.render('t', {devices:displayDevices});
+	res.render('devices', {devices:displayDevices});
 });
 
 app.get('/dev/:devaddr/:func', function(req, res) {
 
 	var theCmd = '/rest/nodes/' + req.params.devaddr.replace(/ /g, '%20') + '/cmd/' + req.params.func;
 	isyREST( theCmd, function(resp) {
-	    res.send(resp);		//  Just return to JSON version of the ISY response
+	    res.send(resp);		//  Just return the JSON version of the ISY response
 	});
 });
 
@@ -411,29 +390,12 @@ midnightRule.minute = 0;
 midnightRule.hour = 0;
 var midnightJob = schedule.scheduleJob(midnightRule, midnightMaintenance);
 
+// process incoming event data from the ISY
+// An incoming connection was received.  Set up a data event handler for this client connection.
+var datastr = new String();
+var updateSerial = 0;
 
-// This is the listener that will receive event notifications from the ISY
-
-var eventListener = net.createServer();
-eventListener.on('connection', function(client) {
-
-	// An incoming connection was received.  Set up a data event handler for this client connection.
-	var datastr = new String();
-	var updateSerial = 0;
-
-	client.on('error', function(errorObject) {
-		// TCP Error.   Close event will be emitted immediately after error, so log it and wait for next event.
-		logger.error('Error in listener on ISY port: ' + JSON.stringify(errorObject));
-	});
-
-	client.on('close', function() {
-		// ISY closed the connection or an error occurred
-		logger.error('ISY client disconnected from server');
-	});
-
-
-
-	client.on('data', function(data) {
+var processEventData = function(data) {
 		// Do some validation of the event notification...
 		// TODO: validate
 		// info we're looking for: <control>  <action> <node>
@@ -553,7 +515,30 @@ eventListener.on('connection', function(client) {
 			parser.parseString(myxml[0]);
 		}
 
+};
+
+
+// This is the listener that will receive event notifications from the ISY
+
+var eventListener = net.createServer();
+eventListener.on('connection', function(client) {
+	logger.debug('ISY Connection received');
+
+
+	client.on('error', function(errorObject) {
+		// TCP Error.   Close event will be emitted immediately after error, so log it and wait for next event.
+		logger.error('Error in listener on ISY port: ' + JSON.stringify(errorObject));
 	});
+
+	client.on('close', function() {
+		// ISY closed the connection or an error occurred
+		logger.error('ISY client disconnected from server');
+	});
+
+
+
+	client.on('data', processEventData);
+
 });
 
 eventListener.listen(0, function() {
@@ -611,7 +596,6 @@ eventListener.listen(0, function() {
 	});
 	res.on('end', function() {
 		logger.debug("received subscription data: " + data);
-		setISYvariable('State_10', listenPort, function(res) {logger.debug('set State_10: ' + JSON.stringify(res))});
 		midnightMaintenance();		// Make sure dates are sane.
 	});
   });

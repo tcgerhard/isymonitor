@@ -1,6 +1,18 @@
 head
   block title
     title isy
-  script(src='https://ajax.googleapis.com/ajax/libs/angularjs/1.2.0/angular.min.js')
-body(ng-app)
+  link(rel="stylesheet" href="/media/main.css")  
+body
+  block navigation
+    ul.nav
+      li isymonitor>
+      li 
+        a(href='/status') status 
+      li
+        a(href='/devices') devices 
+      li
+        a(href='/variables') variables
+      li
+        a(href='/programs') programs
+
   block content

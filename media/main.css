@@ -1,5 +1,7 @@
 /* Style sheet */
 
+ul.nav li {list-style-type: none; display: inline-block; margin-right: 2em; }
+
 div.dev { float: left; width: 9em; border: 1px solid black; text-align: center; }
 span.devname {display: block; width: 100%; margin: 0; height: 1.5em; background-color: #ddd; }
 span.sub {display: inline-block; width: 6.2em; height: 4.5em; margin: 0; border: 1px dotted black; text-align: center; }
