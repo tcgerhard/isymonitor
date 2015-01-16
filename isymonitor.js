@@ -445,7 +445,7 @@ var processEventData = function(data) {
 
 					// Update mqtt if requsted
 					if (mqttClient) {
-						mqttClient.publish( isyconfig.mqttConfig.topic + deviceStatus[noderoot][nodesub]['extname'], action);
+						mqttClient.publish( isyconfig.mqttConfig.topic['dev'] + deviceStatus[noderoot][nodesub]['extname'], action);
 					}
 				} else if (control == "_1") {		// Trigger events
 					if (action == "0") {		// program event
@@ -485,6 +485,10 @@ var processEventData = function(data) {
 						variableStatus[varType][varId].value = varVal;
 						variableStatus[varType][varId].updateTime = varTs;
 						// logger.debug('Var status = ' + JSON.stringify(variableStatus[varType][varId]));
+						// Update mqtt if requsted
+						if (mqttClient) {
+							mqttClient.publish( isyconfig.mqttConfig.topic['var'] + variableStatus[varType][varId].name, varVal);
+						}
 					} else if (action == "7") {	// Variable initialized
 						// <eventInfo>
 						//	<var id=”<var-id>” type =”<var-type>”>
