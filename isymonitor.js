@@ -46,6 +46,7 @@ var appStatus = {
 	};
 
 var deviceStatus = {};
+var devicesByExtname = {};			// Allow lookup by 'external' name
 var variableStatus = [[],[],[]];		// [1] - Array of integer variables; [2] - Array of state variables
 						//  variableStatus[1][n] =  { name: str, value: nn, updateTime: Date(), init: nn }  // Integervariable 'n's state
 var variablesByName = [];			//  variablesByName['varname'] = { type: 1|2, index: n }
@@ -132,8 +133,10 @@ var getDevDetails = function( devId ) {
 	if (maxDebugMsgs-- > 0) console.log(JSON.stringify(devInfo.nodeInfo.node));
 	deviceStatus[noderoot][nodesub]['dimmable'] = devInfo.nodeInfo.node.type && (devInfo.nodeInfo.node.type.split('.')[0] == '1');
 	deviceStatus[noderoot][nodesub]['name'] = devInfo.nodeInfo.node.name;	// The entry in deviceStatus has always been created
-	deviceStatus[noderoot][nodesub]['extname'] = devInfo.nodeInfo.node.name.replace(/[\s\(\)]*/g, "");   // Used as external device name
+	var extname  = devInfo.nodeInfo.node.name.replace(/[\s\(\)]*/g, "");   	// Used as external device name
+	deviceStatus[noderoot][nodesub]['extname'] = extname;   		// Used as external device name
 	deviceStatus[noderoot][nodesub]['deviceClass'] = devInfo.nodeInfo.node.deviceClass;	//
+	devicesByExtname[extname] = devInfo.nodeInfo.node.address;
     });
 };
 
@@ -265,7 +268,17 @@ app.get('/devices', function(req, res) {
 
 app.get('/dev/:devaddr/:func', function(req, res) {
 
-	var theCmd = '/rest/nodes/' + req.params.devaddr.replace(/ /g, '%20') + '/cmd/' + req.params.func;
+
+	var funcMap = {'ON':'DON', 'OFF':'DOF', 'INCREASE':'BRT', 'DECREASE':'DIM'};		//  Map openhab commands to ISY
+	func = req.params.func;
+	if (typeof funcMap[func] != 'undefined') func = funcMap[func];
+
+	var theCmd;
+	if (typeof devicesByExtname[req.params.devaddr] != "undefined") {
+		theCmd = '/rest/nodes/' + devicesByExtname[req.params.devaddr].replace(/ /g, '%20') + '/cmd/' + req.params.func;
+	} else {
+		theCmd = '/rest/nodes/' + req.params.devaddr.replace(/ /g, '%20') + '/cmd/' + req.params.func;
+	}
 	isyREST( theCmd, function(resp) {
 	    res.send(resp);		//  Just return the JSON version of the ISY response
 	});
@@ -444,7 +457,7 @@ var processEventData = function(data) {
 					deviceStatus[noderoot][nodesub]['serial'] = updateSerial;
 
 					// Update mqtt if requsted
-					if (mqttClient) {
+					if (mqttClienti && deviceStatus[noderoot][nodesub]['extname'] != 'undefined') {		//  May not have the name during initialization
 						mqttClient.publish( isyconfig.mqttConfig.topic['dev'] + deviceStatus[noderoot][nodesub]['extname'], action);
 					}
 				} else if (control == "_1") {		// Trigger events
@@ -511,7 +524,10 @@ var processEventData = function(data) {
 					// action == "NN" - node renamed <eventInfo><newName>name</newName></eventInfo>
 					if (action == "NN") {
 						deviceStatus[noderoot][nodesub]['name'] = result.Event.eventInfo.newName;
-						deviceStatus[noderoot][nodesub]['extname'] = result.Event.eventInfo.newName.replace(/[\s\(\)]*/g, "");   // Used as external device name
+						var extname = result.Event.eventInfo.newName.replace(/[\s\(\)]*/g, "");   // Used as external device name
+						deviceStatus[noderoot][nodesub]['extname'] = extname;   // Used as external device name
+						//  Update name lookup table.   Don't bother removing the old entry; both will point to the device until restart.
+						devicesByExtname[extname] = devInfo.nodeInfo.node.address;
 					}	
 				}
 				updateSerial++;
