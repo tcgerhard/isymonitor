@@ -113,7 +113,9 @@ var setISYvariable = function(vn, val, cb) {
 		} else {
 			isyREST('/rest/vars/set/' + type + '/' + id + '/' + val, function(res){
 				// We should look at the response and determine if 200 is really warranted.
-				logger.debug('setISYvariable: ' + vn + ' response: ' + JSON.stringify(res));
+				if (!res.RestResponse || !res.RestResponse.status || (res.RestResponse.status != "200")) {
+				    logger.debug('setISYvariable: ' + vn + ' response: ' + JSON.stringify(res));
+				}
 				cb && cb({status: 200, msg: 'Update posted'});
 			});
 		}
@@ -269,22 +271,34 @@ app.get('/devices', function(req, res) {
 app.get('/dev/:devaddr/:func', function(req, res) {
 
 
-	var funcMap = {'ON':'DON', 'OFF':'DOF', 'INCREASE':'BRT', 'DECREASE':'DIM'};		//  Map openhab commands to ISY
-	func = req.params.func;
-	if (typeof funcMap[func] != 'undefined') func = funcMap[func];
-
+	var funcMap = {'ON':'DON', 'OFF':'DOF', 'INCREASE':'BRT', 'DECREASE':'DIM', '0':'DOF', '100':'DON'};		//  Map openhab commands to ISY
+	var fi  = 0;
 	var theCmd;
+
+	func = req.params.func;
+	if (typeof funcMap[func] != 'undefined') {
+		func = funcMap[func];			// Map from ON to DON, etc.
+	} else if ((fi = parseInt(func)) != 'NaN' && fi > 0 && fi <100)  {
+		func = Math.round(fi * 2.55);		// Convert from 0-100 to 0-255
+		func = 'DON' + '/' + func;			// i.e., DON/127 for 50%
+	}
+
 	if (typeof devicesByExtname[req.params.devaddr] != "undefined") {
-		theCmd = '/rest/nodes/' + devicesByExtname[req.params.devaddr].replace(/ /g, '%20') + '/cmd/' + req.params.func;
+		theCmd = '/rest/nodes/' + devicesByExtname[req.params.devaddr].replace(/ /g, '%20') + '/cmd/' + func;
 	} else {
-		theCmd = '/rest/nodes/' + req.params.devaddr.replace(/ /g, '%20') + '/cmd/' + req.params.func;
+		theCmd = '/rest/nodes/' + req.params.devaddr.replace(/ /g, '%20') + '/cmd/' + func;
 	}
 	isyREST( theCmd, function(resp) {
 	    res.send(resp);		//  Just return the JSON version of the ISY response
+	    if (resp.RestResponse.status != "200") {
+		logger.debug("app.get/dev", "request: " + theCmd);
+		logger.debug("app.dev/dev", "response:" + JSON.stringify(resp));
+	    }
 	});
 });
 
 // Run program "pn"
+// Runs the default "RunIf" mode
 app.get('/prog/:pn', function(req,res) {
 	var pn = req.params.pn;
 	logger.debug("Requesting program " + pn );
@@ -397,11 +411,20 @@ var midnightMaintenance = function() {
 	if (dayVar != '') setISYvariable( dayVar, dt.getDate(), function(status) {});
 }
 
+// If the last heartbeat is too old, issue a warning message.   TODO: attempt reconnect to ISY.
+var heartbeatCheck = function() {
+
+}
+
 // Set up a scheduled job to run each day at midnight.   This job will set the month and day of month variables, if defined
 var midnightRule = new schedule.RecurrenceRule();
 midnightRule.minute = 0;
 midnightRule.hour = 0;
 var midnightJob = schedule.scheduleJob(midnightRule, midnightMaintenance);
+
+// Schedule a job to run to check for no heartbeat.
+var hearbeatCheckJob = schedule.scheduleJob('*/15 * * * *', heartbeatCheck);
+
 
 // process incoming event data from the ISY
 // An incoming connection was received.  Set up a data event handler for this client connection.
@@ -457,7 +480,7 @@ var processEventData = function(data) {
 					deviceStatus[noderoot][nodesub]['serial'] = updateSerial;
 
 					// Update mqtt if requsted
-					if (mqttClienti && deviceStatus[noderoot][nodesub]['extname'] != 'undefined') {		//  May not have the name during initialization
+					if (mqttClient && deviceStatus[noderoot][nodesub]['extname'] != 'undefined') {		//  May not have the name during initialization
 						mqttClient.publish( isyconfig.mqttConfig.topic['dev'] + deviceStatus[noderoot][nodesub]['extname'], action);
 					}
 				} else if (control == "_1") {		// Trigger events
