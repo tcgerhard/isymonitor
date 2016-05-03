@@ -20,6 +20,7 @@ There is a very basic http listener on the port configured via isyconfig.httpPor
 * /dev/i\<dev addr\>/\<func\> -- control a device where
   * \<dev addr\> is formatted like "12 34 BC 1" 
   * \<func\> is an ISY function: DON, DOF, DIM, BRT
+* /prog/\<pn\>/how -- run a program.  how = runIf, runThen, runElse
 * /prog/\<pn\> -- run a program (including conditions), where
   * \<pn\> is the program name, as formatted in the result from /programs
 * /programs/refresh -- requests a rebuild of the program list from the isy.  Needed because the isy does not send an event when a program is added or renamed.

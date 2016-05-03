@@ -298,13 +298,13 @@ app.get('/dev/:devaddr/:func', function(req, res) {
 });
 
 // Run program "pn"
-// Runs the default "RunIf" mode
-app.get('/prog/:pn', function(req,res) {
+// how: 'runIf', 'runThen', 'runElse'
+var isyRunProg = function(how, req, res) {
 	var pn = req.params.pn;
 	logger.debug("Requesting program " + pn );
 	if (typeof programsByName[pn] != "undefined") {
 		// logger.debug("Calling program " + pn  + ", as ID " + programsByName[pn]);
-		isyREST( '/rest/programs/' + programsByName[pn] + '/run', function(response) {
+		isyREST( '/rest/programs/' + programsByName[pn] + '/' + how, function(response) {
 			// logger.debug("Ran program id " + programsByName[pn]);
 			// logger.debug("Result = " + JSON.stringify(response));
 		res.send("Program " + pn + " requested");
@@ -313,7 +313,22 @@ app.get('/prog/:pn', function(req,res) {
 	logger.debug("Program not found");
 	res.status(404).send("Program " + pn + " not found");
 	}
+};
+
+app.get('/prog/:pn/:how', function(req, res) {
+	how = req.params.how;
+	if (how == 'runIf' || how == 'runThen' || how == 'runElse') {
+		isyRunProg(how, req, res);	
+	} else {
+		res.status(403).send("Invalid request " + how);
+	}
 });
+
+// Runs the default "RunIf" mode
+app.get('/prog/:pn', function(req,res) {
+	isyRunProg('runIf', req, res);
+});
+
 
 app.get('/programs', function(req,res) {
 	var data = '';
