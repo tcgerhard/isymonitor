@@ -18,7 +18,7 @@ var isyconfig = {
 	// To publish status updates to mqtt, specify the host and port of the mqtt server
 	// The topic will be the string here, plus the device name (with white space removed)
 	// If the host is null, no mqtt updates will be attempted
-	mqttConfig: { host: '', port: 1883, topic: {dev: '/isy/dev/', 'var':'/isy/var/' },
+	mqttConfig: { host: '', port: 1883, topic: {dev: '/isy/dev/', 'var':'/isy/var/' }},
 
 	// httpPort -- port for web client
 	httpPort: 8000,
